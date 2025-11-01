@@ -62,6 +62,7 @@ contract RockPaperScissors is SepoliaConfig {
     /// @param encryptedMove The encrypted move (external format)
     /// @param inputProof Zero-knowledge proof for the encrypted input
     /// @dev Move must be 0 (Rock), 1 (Paper), or 2 (Scissors)
+    /// @dev Invalid moves (> 2) are clamped to 0 (Rock) to prevent game manipulation
     function submitMove(externalEuint8 encryptedMove, bytes calldata inputProof) external {
         require(player1 != address(0), "No active game");
         require(msg.sender == player1 || msg.sender == player2, "Not a player in this game");
@@ -77,16 +78,24 @@ contract RockPaperScissors is SepoliaConfig {
         // Convert external encrypted input to internal euint8
         euint8 move = FHE.fromExternal(encryptedMove, inputProof);
 
-        // CRITICAL: Grant ACL permissions
-        // Contract needs permission to use this ciphertext for computations
-        FHE.allowThis(move);
+        // INPUT VALIDATION: Ensure move is in valid range [0, 2]
+        // Without revealing the actual move value (no revert on encrypted condition)
+        euint8 MAX_VALID_MOVE = FHE.asEuint8(2);
+        ebool isValidMove = FHE.le(move, MAX_VALID_MOVE); // move <= 2
 
-        // Store the move
+        // If invalid, clamp to 0 (Rock) as default fallback
+        // This prevents game manipulation while maintaining confidentiality
+        euint8 sanitizedMove = FHE.select(isValidMove, move, FHE.asEuint8(0));
+
+        // Contract needs permission to use this ciphertext for computations
+        FHE.allowThis(sanitizedMove);
+
+        // Store the sanitized move
         if (msg.sender == player1) {
-            move1 = move;
+            move1 = sanitizedMove;
             player1Submitted = true;
         } else {
-            move2 = move;
+            move2 = sanitizedMove;
             player2Submitted = true;
         }
 
@@ -104,7 +113,7 @@ contract RockPaperScissors is SepoliaConfig {
         // Compute encrypted result using FHE
         euint8 encryptedResult = calculateWinner();
 
-        // CRITICAL: Grant contract permission to decrypt this result
+        // Grant contract permission to decrypt this result
         FHE.allowThis(encryptedResult);
 
         // Prepare ciphertext for decryption
@@ -150,8 +159,11 @@ contract RockPaperScissors is SepoliaConfig {
     }
 
     /// @notice Reset the game state for a new round
+    /// @dev Only players from the previous game can reset
+    /// @dev Encrypted moves (move1, move2) will be overwritten in the next game
     function resetGame() external {
         require(gameRevealed, "Current game not revealed yet");
+        require(msg.sender == player1 || msg.sender == player2, "Only players can reset");
 
         player1 = address(0);
         player2 = address(0);
@@ -159,6 +171,7 @@ contract RockPaperScissors is SepoliaConfig {
         player2Submitted = false;
         gameRevealed = false;
         result = 0;
+        isDecryptionPending = false;
     }
 
     // ============================================
