@@ -2,44 +2,30 @@
 pragma solidity ^0.8.24;
 
 import {FHE, euint8, externalEuint8, ebool} from "@fhevm/solidity/lib/FHE.sol";
-import {SepoliaConfig} from "@fhevm/solidity/config/ZamaConfig.sol";
+import {RockPaperScissorsBase} from "./RockPaperScissorsBase.sol";
 
-/// @title Rock Paper Scissors with Fully Homomorphic Encryption
+/// @title Rock Paper Scissors with Fully Homomorphic Encryption (2-Player Mode)
 /// @notice A confidential Rock-Paper-Scissors game where moves remain encrypted until reveal
 /// @dev Uses FHE to compute the winner without revealing individual player moves
-contract RockPaperScissors is SepoliaConfig {
+contract RockPaperScissors is RockPaperScissorsBase {
     // ============================================
-    // State Variables
+    // State Variables (2-Player Specific)
     // ============================================
 
     /// @notice Game participants
     address public player1;
     address public player2;
 
-    /// @notice Encrypted moves (0=Rock, 1=Paper, 2=Scissors)
-    euint8 private move1;
-    euint8 private move2;
-
     /// @notice Track submission status
     bool public player1Submitted;
     bool public player2Submitted;
 
-    /// @notice Async decryption state (prevents concurrent reveal requests)
-    bool public isDecryptionPending;
-    uint256 private latestRequestId;
-
-    /// @notice Public result after decryption (0=Draw, 1=Player1 wins, 2=Player2 wins)
-    uint8 public result;
-    bool public gameRevealed;
-
     // ============================================
-    // Events
+    // Events (2-Player Specific)
     // ============================================
 
     event GameStarted(address indexed player1, address indexed player2);
     event MoveSubmitted(address indexed player);
-    event RevealRequested(uint256 requestId);
-    event GameResult(uint8 result, address winner);
 
     // ============================================
     // External Functions
@@ -78,14 +64,8 @@ contract RockPaperScissors is SepoliaConfig {
         // Convert external encrypted input to internal euint8
         euint8 move = FHE.fromExternal(encryptedMove, inputProof);
 
-        // INPUT VALIDATION: Ensure move is in valid range [0, 2]
-        // Without revealing the actual move value (no revert on encrypted condition)
-        euint8 MAX_VALID_MOVE = FHE.asEuint8(2);
-        ebool isValidMove = FHE.le(move, MAX_VALID_MOVE); // move <= 2
-
-        // If invalid, clamp to 0 (Rock) as default fallback
-        // This prevents game manipulation while maintaining confidentiality
-        euint8 sanitizedMove = FHE.select(isValidMove, move, FHE.asEuint8(0));
+        // Sanitize move to valid range [0, 2] using base contract logic
+        euint8 sanitizedMove = sanitizeMove(move);
 
         // Contract needs permission to use this ciphertext for computations
         FHE.allowThis(sanitizedMove);
@@ -127,41 +107,22 @@ contract RockPaperScissors is SepoliaConfig {
         emit RevealRequested(latestRequestId);
     }
 
-    /// @notice Callback function called by the decryption oracle
-    /// @param requestId The request ID from requestDecryption
-    /// @param cleartexts ABI-encoded decrypted values
-    /// @param decryptionProof KMS signatures and proof data
-    /// @dev CRITICAL: Always verify signatures to prevent manipulation
-    function revealCallback(uint256 requestId, bytes memory cleartexts, bytes memory decryptionProof) public {
-        // Anti-replay: Verify this is the expected request
-        require(requestId == latestRequestId, "Invalid request ID");
-
-        // SECURITY: Verify KMS signatures (prevents relayer manipulation)
-        FHE.checkSignatures(requestId, cleartexts, decryptionProof);
-
-        // Decode the decrypted result
-        uint8 decryptedResult = abi.decode(cleartexts, (uint8));
-
-        // Store result and update state
-        result = decryptedResult;
-        gameRevealed = true;
-        isDecryptionPending = false;
-
-        // Determine winner address for event
-        address winner = address(0);
-        if (result == 1) {
-            winner = player1;
-        } else if (result == 2) {
-            winner = player2;
+    /// @notice Get the winner's address based on the result
+    /// @param _result The game result (0=Draw, 1=P1 wins, 2=P2 wins)
+    /// @return winner The address of the winner (address(0) for draw)
+    function getWinnerAddress(uint8 _result) internal view override returns (address) {
+        if (_result == 1) {
+            return player1;
+        } else if (_result == 2) {
+            return player2;
         }
-
-        emit GameResult(result, winner);
+        return address(0); // Draw
     }
 
     /// @notice Reset the game state for a new round
     /// @dev Only players from the previous game can reset
     /// @dev Encrypted moves (move1, move2) will be overwritten in the next game
-    function resetGame() external {
+    function resetGame() external override {
         require(gameRevealed, "Current game not revealed yet");
         require(msg.sender == player1 || msg.sender == player2, "Only players can reset");
 
@@ -172,57 +133,5 @@ contract RockPaperScissors is SepoliaConfig {
         gameRevealed = false;
         result = 0;
         isDecryptionPending = false;
-    }
-
-    // ============================================
-    // Internal Functions
-    // ============================================
-
-    /// @notice Calculate the winner using FHE operations on encrypted moves
-    /// @return encryptedResult The encrypted result (0=Draw, 1=P1 wins, 2=P2 wins)
-    /// @dev Uses FHE.select() for conditional logic without revealing moves
-    function calculateWinner() internal returns (euint8) {
-        // Check for draw
-        ebool isDraw = FHE.eq(move1, move2);
-
-        // Define encrypted constants for moves
-        euint8 ROCK = FHE.asEuint8(0);
-        euint8 PAPER = FHE.asEuint8(1);
-        euint8 SCISSORS = FHE.asEuint8(2);
-
-        // Check all winning conditions for Player 1
-        // P1 wins if: (Rock beats Scissors) OR (Paper beats Rock) OR (Scissors beats Paper)
-
-        // Rock beats Scissors
-        ebool p1Rock = FHE.eq(move1, ROCK);
-        ebool p2Scissors = FHE.eq(move2, SCISSORS);
-        ebool p1WinsRockScissors = FHE.and(p1Rock, p2Scissors);
-
-        // Paper beats Rock
-        ebool p1Paper = FHE.eq(move1, PAPER);
-        ebool p2Rock = FHE.eq(move2, ROCK);
-        ebool p1WinsPaperRock = FHE.and(p1Paper, p2Rock);
-
-        // Scissors beats Paper
-        ebool p1Scissors = FHE.eq(move1, SCISSORS);
-        ebool p2Paper = FHE.eq(move2, PAPER);
-        ebool p1WinsScissorsPaper = FHE.and(p1Scissors, p2Paper);
-
-        // Combine all P1 winning conditions
-        ebool p1Wins = FHE.or(p1WinsRockScissors, FHE.or(p1WinsPaperRock, p1WinsScissorsPaper));
-
-        // Result encoding: 0=Draw, 1=P1 wins, 2=P2 wins
-        // Use nested FHE.select to handle all three cases
-        euint8 encryptedResult = FHE.select(
-            isDraw,
-            FHE.asEuint8(0), // Draw
-            FHE.select(
-                p1Wins,
-                FHE.asEuint8(1), // Player 1 wins
-                FHE.asEuint8(2) // Player 2 wins (by elimination)
-            )
-        );
-
-        return encryptedResult;
     }
 }
