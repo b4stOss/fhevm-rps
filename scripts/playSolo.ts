@@ -3,11 +3,15 @@
  *
  * This script demonstrates a solo game (player vs AI) with encrypted moves.
  *
- * To run this demo:
- *   npm test -- --grep "Demo: Solo game"
+ * USAGE:
+ *   npm run demo:solo
+ *   (or: npx hardhat test test/RockPaperScissorsSolo.demo.ts)
  *
- * Note: This script is structured as a test to leverage the fhevm plugin initialization.
- * For production deployment scripts, refer to the hardhat-deploy plugin in the deploy/ folder.
+ * IMPORTANT: Do NOT run with `hardhat run` as the FHEVM plugin
+ * requires initialization via the test runner.
+ *
+ * This script is imported by test/RockPaperScissorsSolo.demo.ts which provides
+ * the necessary FHEVM environment setup.
  */
 
 import { ethers, fhevm } from "hardhat";

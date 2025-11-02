@@ -81,7 +81,7 @@ describe("RockPaperScissorsSolo", function () {
 
     // Verify game 1 completed
     expect(await contract.gameRevealed()).to.equal(true);
-    const result1 = await contract.result();
+    await contract.result();
 
     // Reset for game 2
     await contract.connect(signers.alice).resetGame();
@@ -104,9 +104,6 @@ describe("RockPaperScissorsSolo", function () {
     expect(await contract.gameRevealed()).to.equal(true);
     const result2 = Number(await contract.result());
     expect(result2).to.be.oneOf([DRAW, PLAYER_WINS, ZAMA_WINS]);
-
-    // Results from game 1 and 2 are independent
-    // (We don't assert they're different because randomness could theoretically produce the same result)
   });
 
   it("should prevent playing while game is in progress", async function () {

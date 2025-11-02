@@ -3,11 +3,15 @@
  *
  * This script demonstrates a complete game flow with encrypted moves.
  *
- * To run this demo:
- *   npm test -- --grep "Demo: Complete game"
+ * USAGE:
+ *   npm run demo:duo
+ *   (or: npx hardhat test test/RockPaperScissors.demo.ts)
  *
- * Note: This script is structured as a test to leverage the fhevm plugin initialization.
- * For production deployment scripts, refer to the hardhat-deploy plugin in the deploy/ folder.
+ * IMPORTANT: Do NOT run with `hardhat run` as the FHEVM plugin
+ * requires initialization via the test runner.
+ *
+ * This script is imported by test/RockPaperScissors.demo.ts which provides
+ * the necessary FHEVM environment setup.
  */
 
 import { ethers, fhevm } from "hardhat";
