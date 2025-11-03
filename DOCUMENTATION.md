@@ -295,7 +295,7 @@ without duplicating FHE logic.
 
 ## Next Steps
 
-- **Deploy to Sepolia**: See README.md deployment section
+- **Deploy to Sepolia**: Involve getting some Faucet and add some configuration.
 - **Add frontend**: Integrate with `fhevmjs` for React/Vue apps
 - **Extend gameplay**: Build on `RockPaperScissorsBase` for custom game modes
 - **Read design docs**: See DESIGN.md for technical trade-offs and debugging strategies

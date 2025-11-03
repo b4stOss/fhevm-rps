@@ -101,7 +101,7 @@ The game must guarantee:
 
 **Challenge**: Players might retry transactions or attempt to change moves.
 
-**Solution** (contracts/RockPaperScissors.sol:71-75):
+**Solution** (contracts/RockPaperScissors.sol:58-62,74-80):
 
 ```solidity
 if (msg.sender == player1) {
@@ -121,7 +121,7 @@ Boolean flags act as idempotency keys. Transaction reverts on duplicate submissi
 
 **Challenge**: Concurrent reveal requests could corrupt state or waste gas.
 
-**Solution** (contracts/RockPaperScissors.sol:101-102):
+**Solution** (contracts/RockPaperScissors.sol:90,105):
 
 ```solidity
 require(!isDecryptionPending, "Decryption already in progress");
@@ -135,7 +135,7 @@ Global lock ensures only one decryption at a time. Lock released in `revealCallb
 **Challenge**: `revealCallback()` is public (required for Gateway). Without validation, attackers could inject fake
 results.
 
-**Solution** (contracts/RockPaperScissorsBase.sol:126-131):
+**Solution** (contracts/RockPaperScissorsBase.sol:107-116):
 
 ```solidity
 function revealCallback(uint256 requestId, bytes memory cleartexts, bytes memory decryptionProof) public {
@@ -176,81 +176,72 @@ See test coverage: test/RockPaperScissors.ts:248-275 (sanitization test).
 
 ## Debugging Report
 
-### Scenario: Decryption Callback Never Arrives
+### Scenario: Decryption Callback Never Arrives (Testnet)
 
-#### Problem
+#### The Problem
 
-**Symptom**: After calling `requestReveal()`, the transaction succeeds and emits `RevealRequested`, but `gameRevealed`
-never becomes `true`. Result stays 0.
+I deploy to Sepolia, call `requestReveal()`, transaction succeeds with a `RevealRequested` event... but the callback never
+triggers. After 5 minutes, `gameRevealed` is still `false` and the game is stuck.
 
-**Impact**: Game stuck, cannot determine winner.
+**Important context**: This only happens on testnet. In local Hardhat mock mode, `awaitDecryptionOracle()` simulates
+callbacks instantly, so you never see this issue during development.
 
-#### Root Causes
+#### How I'd Debug This
 
-1. **KMS/Gateway offline** - Network partition or service downtime
-2. **Missing ACL permission** - Contract didn't call `FHE.allowThis(encryptedResult)` before requesting decryption
-3. **Incorrect callback selector** - Contract specified wrong function signature in `requestDecryption()`
-4. **Gas exhaustion** - Callback runs out of gas during execution
-5. **Relayer misconfiguration** - Insufficient funds or wrong contract address
+**First instinct: Check ACL permissions**
 
-#### Debugging Process
+This is the #1 cause of callback failures in FHEVM. The Gateway needs permission to decrypt the result before it can
+send it back. I'd verify I called `FHE.allowThis(encryptedResult)` before `requestDecryption()`.
 
-**Step 1: Verify decryption request**
-
-```bash
-npx hardhat test --grep "requestReveal"
-# Check for RevealRequested event with valid requestId
-```
-
-**Step 2: Check ACL permissions**
+Quick check: Add a temporary view function to the contract:
 
 ```solidity
-// Add temporary debug function
 function debugACL() public view returns (bool) {
   return FHE.isAllowed(encryptedResult, address(this));
 }
 ```
 
-If returns `false`: **Fix** by ensuring `FHE.allowThis(encryptedResult)` is called before `requestDecryption()`.
+If this returns `false`, that's my problem. Fix: ensure the code has `FHE.allowThis(encryptedResult)` right before
+requesting decryption.
 
-**Step 3: Simulate callback locally**
+**Second: Verify the request actually went through**
 
-```typescript
-// Manually trigger callback in test
-const mockResult = 1;
-const encodedResult = ethers.AbiCoder.defaultAbiCoder().encode(["uint8"], [mockResult]);
-await contract.revealCallback(requestId, encodedResult, "0x");
-```
+Check Sepolia block explorer for the transaction to confirm the `RevealRequested` event was emitted with a valid
+`requestId`. If there's no event, the issue is in my contract logic, not the Gateway.
 
-If succeeds: Issue is Gateway delivery, not callback logic.
+**Third: Check if it's an infrastructure issue**
 
-**Step 4: Verify relayer configuration**
+Look at Sepolia explorer to see if other contracts' decryption requests are being processed (search for recent
+`DecryptionOracle` events). If nothing network-wide is working, the Gateway/KMS might be down or congested.
 
-```bash
-echo $RELAYER_URL  # Check configuration
-cast balance <RELAYER_ADDRESS>  # Check gas funds (need > 0.01 ETH)
-```
+Also verify the relayer has enough ETH to pay for callback gas (needs >0.01 ETH typically).
 
-#### Validation of Fix
+**Last resort: Callback signature mismatch**
 
-1. **Re-run full test suite**: `npm test` - All tests should pass
-2. **Deploy to testnet**: Monitor callback timing (~30-90s on Sepolia)
-3. **Add timeout handling** (future improvement):
+Double-check my callback function signature exactly matches what FHEVM expects:
 
 ```solidity
-function cancelStuckReveal() external {
-  require(isDecryptionPending, "No pending reveal");
-  require(block.timestamp > revealRequestTime + 10 minutes, "Too early");
-  isDecryptionPending = false; // Allow retry
-}
+function revealCallback(uint256 requestId, bytes memory cleartexts, bytes memory decryptionProof) public
 ```
 
-#### Lessons Learned
+Any typo in parameter types would silently fail.
 
-- Most FHEVM issues stem from missing ACL calls
-- Always check Gateway status before debugging contract logic
-- Add detailed events with `requestId` for debugging
-- Test in mock mode first (`fhevm.awaitDecryptionOracle()` simulates callbacks instantly)
+#### Validation
+
+Once I fix the issue (likely adding the missing `FHE.allowThis()`):
+
+1. Redeploy to Sepolia
+2. Run a full game flow
+3. Wait 30-120 seconds (normal callback time on testnet)
+4. Verify `gameRevealed()` returns `true`
+
+For production, I'd also add a timeout mechanism so games don't stay stuck forever if something goes wrong with the
+Gateway.
+
+#### Key Takeaway
+
+ACL permissions are critical and easy to forget. In mock mode everything works without them, but on testnet the Gateway
+actually enforces permissions. Always test on Sepolia before assuming everything works.
 
 ---
 
@@ -283,8 +274,6 @@ function cancelStuckReveal() external {
 
 **Trade-off**: Security vs convenience. Pre-defined players prevent frontrunning.
 
-### 3. Result Decryption: Full vs Selective
-
 **Decision**: Only decrypt final result (winner), **not** individual moves.
 
 **Rationale**:
@@ -297,7 +286,7 @@ function cancelStuckReveal() external {
 
 **Trade-off**: Privacy over transparency. For auditing, could add optional move decryption.
 
-### 4. Reset Mechanism: Stateful Reuse vs New Contract
+### 3. Reset Mechanism: Stateful Reuse vs New Contract
 
 **Decision**: Manual `resetGame()` resets plaintext state for contract reuse.
 
@@ -317,7 +306,7 @@ function cancelStuckReveal() external {
 
 **Trade-off**: Demo-friendly reuse vs production scalability.
 
-### 5. Input Sanitization: Revert vs FHE Clamping
+### 4. Input Sanitization: Revert vs FHE Clamping
 
 **Decision**: Use `FHE.select()` to clamp invalid moves to fallback value (Rock).
 
@@ -337,7 +326,13 @@ function cancelStuckReveal() external {
 
 ### If I Had More Time
 
-**1. Multi-Game Factory Pattern** Current design allows one active game per deployed contract. A factory pattern would
+**1. Testnet Deployment (Sepolia)**
+
+Development was limited to **local Hardhat network** to optimize development speed and avoid testnet friction (faucet
+hunting, transaction delays, etc.). While the code should theoretically work on Sepolia, deployment would require deeper
+configuration.
+
+**2. Multi-Game Factory Pattern** Current design allows one active game per deployed contract. A factory pattern would
 enable:
 
 - Concurrent games on same deployment
