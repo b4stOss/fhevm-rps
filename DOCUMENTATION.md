@@ -198,7 +198,7 @@ stateDiagram-v2
 | `GameStarted`     | `player1`, `player2` | Emitted when game is initialized     |
 | `MoveSubmitted`   | `player`             | Emitted when a player submits        |
 | `RevealRequested` | `requestId`          | Emitted when decryption is requested |
-| `GameRevealed`    | `winner`             | Emitted after decryption callback    |
+| `GameResult`      | `result`, `winner`   | Emitted after decryption callback    |
 
 ## Solo Mode (Bonus)
 
@@ -234,7 +234,8 @@ See working examples in the repository:
 Run the demo:
 
 ```bash
-npm test -- --grep "Demo"
+npm run demo:duo   # 2-player demo (Alice vs Bob)
+npm run demo:solo  # Solo demo (Player vs Zama)
 ```
 
 ## Security Patterns

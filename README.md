@@ -60,7 +60,7 @@ npm run demo:solo
 ## Project Structure
 
 ```
-fhevm-hardhat-template/
+fhevm-rps/
 ├── contracts/
 │   ├── RockPaperScissorsBase.sol    # Abstract base with FHE game logic
 │   ├── RockPaperScissors.sol        # 2-player mode
@@ -83,7 +83,7 @@ fhevm-hardhat-template/
 ✅ **2-player mode** - Classic Rock-Paper-Scissors with encrypted moves. \
 ✅ **Solo mode** - Play against Zama (FHE randomness). \
 ✅ **Modular architecture** - Reusable base contract for FHE games. \
-✅ **Comprehensive tests** - 14 passing tests covering happypath + edge cases. \
+✅ **Comprehensive tests** - 12 passing tests covering happypath + edge cases. \
 ✅ **Production patterns** - Idempotency, request integrity, ACL management.
 
 ## How It Works
