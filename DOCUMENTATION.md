@@ -122,51 +122,51 @@ if (gameRevealed) {
 
 ## Architecture Flow
 
-```
-┌──────────────┐                                    ┌──────────────┐
-│   Player 1   │                                    │   Player 2   │
-│   (Alice)    │                                    │    (Bob)     │
-└──────┬───────┘                                    └──────┬───────┘
-       │                                                   │
-       │ 1. startGame(bob.address)                        │
-       ├──────────────────────────────────────────────────┤
-       │                                                   │
-       │ 2. Encrypt move client-side                      │
-       │    (Rock → euint8)                               │
-       │                                                   │
-       │ 3. submitMove(encrypted, proof)                  │ 3. submitMove(encrypted, proof)
-       ├─────────────────────────┐                        │
-       │                         ▼                        ▼
-       │                  ┌────────────────┐
-       │                  │    Contract    │
-       │                  │  - move1: Rock │
-       │                  │  - move2: Paper│
-       │                  └────────┬───────┘
-       │                           │
-       │                           │ 4. calculateWinner()
-       │                           │    (FHE operations)
-       │                           │
-       │ 5. requestReveal()        │
-       ├───────────────────────────►
-       │                           │
-       │                           ▼
-       │                  ┌─────────────────┐
-       │                  │  KMS / Gateway  │
-       │                  │  (Decryption)   │
-       │                  └────────┬────────┘
-       │                           │
-       │                           │ 6. revealCallback(result)
-       │                           ▼
-       │                  ┌────────────────┐
-       │                  │    Contract    │
-       │                  │  result: 2     │
-       │                  │  (Bob wins)    │
-       │                  └────────────────┘
-       │
-       │ 7. Read result
-       └───────────────────────────────────────────────────┐
-                                                           │
-                                                    🎉 Winner: Bob
+```mermaid
+stateDiagram-v2
+    [*] --> Uninitialized
+
+    Uninitialized --> GameStarted : startGame(player2)<br/>[player1 = msg.sender]
+
+    GameStarted --> Player1Submitted : submitMove()<br/>[player1 submits]<br/>[player1Submitted = true]
+
+    Player1Submitted --> BothSubmitted : submitMove()<br/>[player2 submits]<br/>[player2Submitted = true]
+
+    GameStarted --> Player2Submitted : submitMove()<br/>[player2 submits]<br/>[player2Submitted = true]
+
+    Player2Submitted --> BothSubmitted : submitMove()<br/>[player1 submits]<br/>[player1Submitted = true]
+
+    BothSubmitted --> RevealPending : requestReveal()<br/>[calculateWinner()]<br/>[isDecryptionPending = true]
+
+    RevealPending --> Revealed : revealCallback()<br/>[KMS callback]<br/>[gameRevealed = true]<br/>[result stored]
+
+    Revealed --> Uninitialized : resetGame()<br/>[by previous players]<br/>[reset all state]
+
+    note right of Uninitialized
+        Initial state
+        No active game
+    end note
+
+    note right of GameStarted
+        Players defined
+        Awaiting encrypted moves
+    end note
+
+    note right of BothSubmitted
+        Both moves stored (encrypted)
+        Ready for computation
+    end note
+
+    note right of RevealPending
+        FHE computation done
+        Awaiting Gateway callback
+        (30-90s on Sepolia)
+    end note
+
+    note right of Revealed
+        Winner determined
+        Moves stay encrypted forever
+    end note
 ```
 
 ## API Reference
@@ -218,10 +218,10 @@ await soloContract.playAgainstZama(encrypted.handles[0], encrypted.inputProof);
 // Wait for callback, then read result
 await fhevm.awaitDecryptionOracle();
 const result = await soloContract.result();
-// 0=Draw, 1=You win, 2=AI wins
+// 0=Draw, 1=You win, 2=Zama wins
 ```
 
-**Key difference**: AI move is generated with `FHE.randEuint8()` and **never revealed** (stays encrypted forever).
+**Key difference**: Zama's move is generated with `FHE.randEuint8()` and **never revealed** (stays encrypted forever).
 
 ## Complete Example
 

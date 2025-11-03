@@ -1,4 +1,4 @@
-np# Rock-Paper-Scissors with FHEVM
+# Rock-Paper-Scissors with FHEVM
 
 Confidential on-chain Rock-Paper-Scissors using Zama's Fully Homomorphic Encryption (FHE). Player moves remain encrypted
 throughout the game, with only the final winner revealed publicly.
