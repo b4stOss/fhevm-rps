@@ -41,8 +41,8 @@ abstract contract RockPaperScissorsBase is SepoliaConfig {
     /// @dev Uses FHE operations to prevent information leakage
     function sanitizeMove(euint8 move) internal returns (euint8) {
         // Define valid range [0, 2]
-        euint8 MAX_VALID_MOVE = FHE.asEuint8(2);
-        ebool isValidMove = FHE.le(move, MAX_VALID_MOVE); // move <= 2
+        // Using scalar operand for gas efficiency (instead of FHE.asEuint8(2))
+        ebool isValidMove = FHE.le(move, 2); // move <= 2
 
         // If invalid, clamp to 0 (Rock) as fallback
         // This prevents game manipulation while maintaining confidentiality
@@ -58,10 +58,10 @@ abstract contract RockPaperScissorsBase is SepoliaConfig {
         // Check for draw
         ebool isDraw = FHE.eq(move1, move2);
 
-        // Define encrypted constants for moves
-        euint8 ROCK = FHE.asEuint8(0);
-        euint8 PAPER = FHE.asEuint8(1);
-        euint8 SCISSORS = FHE.asEuint8(2);
+        // Define scalar constants for moves (using scalars for gas efficiency)
+        uint8 ROCK = 0;
+        uint8 PAPER = 1;
+        uint8 SCISSORS = 2;
 
         // Check all winning conditions for Player 1
         // P1 wins if: (Rock beats Scissors) OR (Paper beats Rock) OR (Scissors beats Paper)

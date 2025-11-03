@@ -49,12 +49,10 @@ contract RockPaperScissorsSolo is RockPaperScissorsBase {
 
         // 2. Generate Zama's move using FHE random (0-2 for Rock/Paper/Scissors)
         // IMPORTANT: This generates an encrypted random number, so Zama's move remains confidential
-        // Note: randEuint8 upper bound must be a power of 2, so we use 4 (2^2) and remap
-        euint8 randomValue = FHE.randEuint8(4); // Generates random value in [0, 3]
-
-        // Map [0, 3] to [0, 2]: if value is 3, map to 0 (Rock) to maintain distribution
-        ebool isThree = FHE.eq(randomValue, FHE.asEuint8(3));
-        move2 = FHE.select(isThree, FHE.asEuint8(0), randomValue); // 3 → 0, otherwise keep value
+        // Note: randEuint8() without bound generates [0, 255]. Using modulo 3 gives near-uniform distribution
+        // Bias is negligible: ~0.39% (256 mod 3 = 1, so value 0 appears 86 times vs 85 for values 1 and 2)
+        euint8 randomValue = FHE.randEuint8(); // Generates random value in [0, 255]
+        move2 = FHE.rem(randomValue, 3); // Map to [0, 2] - using scalar for gas efficiency
         FHE.allowThis(move2);
 
         // 3. Calculate winner (all encrypted)

@@ -1,110 +1,158 @@
-# FHEVM Hardhat Template
+np# Rock-Paper-Scissors with FHEVM
 
-A Hardhat-based template for developing Fully Homomorphic Encryption (FHE) enabled Solidity smart contracts using the
-FHEVM protocol by Zama.
+Confidential on-chain Rock-Paper-Scissors using Zama's Fully Homomorphic Encryption (FHE). Player moves remain encrypted
+throughout the game, with only the final winner revealed publicly.
+
+## What's This?
+
+A minimal implementation demonstrating how to build confidential smart contracts with FHEVM:
+
+- **2-player mode**: Both players submit encrypted moves, contract computes winner without decrypting individual choices
+- **Solo mode**: Play against on-chain encrypted randomness (stretch goal)
+- **Modular architecture**: Reusable base contract for FHE game logic
 
 ## Quick Start
 
-For detailed instructions see:
-[FHEVM Hardhat Quick Start Tutorial](https://docs.zama.ai/protocol/solidity-guides/getting-started/quick-start-tutorial)
+```bash
+# Install dependencies
+npm install
 
-### Prerequisites
+# Run unit tests
+npm test
 
-- **Node.js**: Version 20 or higher
-- **npm or yarn/pnpm**: Package manager
+# Run interactive demos
+npm run demo:duo   # 2-player demo (Alice vs Bob)
+npm run demo:solo  # Solo demo (Player vs Zama)
 
-### Installation
+# Compile contracts
+npm run compile
+```
 
-1. **Install dependencies**
+### See It In Action
 
-   ```bash
-   npm install
-   ```
+Watch the interactive demos showing the full game flow:
 
-2. **Set up environment variables**
+```bash
+# 2-player demo
+npm run demo:duo
+```
 
-   ```bash
-   npx hardhat vars set MNEMONIC
+**Expected output:**
 
-   # Set your Infura API key for network access
-   npx hardhat vars set INFURA_API_KEY
+```
+🎮 Rock Paper Scissors - FHE Demo
+================================
+👥 Players: Alice vs Bob
+✅ Contract deployed
+🔐 Alice submitting move (encrypted)...
+🔐 Bob submitting move (encrypted)...
+🔓 Requesting game result...
+🎉 GAME RESULT: Player 1 wins
+🏆 Winner: Alice
+```
 
-   # Optional: Set Etherscan API key for contract verification
-   npx hardhat vars set ETHERSCAN_API_KEY
-   ```
+**Solo mode demo:**
 
-3. **Compile and test**
+```bash
+npm run demo:solo
+```
 
-   ```bash
-   npm run compile
-   npm run test
-   ```
-
-4. **Deploy to local network**
-
-   ```bash
-   # Start a local FHEVM-ready node
-   npx hardhat node
-   # Deploy to local network
-   npx hardhat deploy --network localhost
-   ```
-
-5. **Deploy to Sepolia Testnet**
-
-   ```bash
-   # Deploy to Sepolia
-   npx hardhat deploy --network sepolia
-   # Verify contract on Etherscan
-   npx hardhat verify --network sepolia <CONTRACT_ADDRESS>
-   ```
-
-6. **Test on Sepolia Testnet**
-
-   ```bash
-   # Once deployed, you can run a simple test on Sepolia.
-   npx hardhat test --network sepolia
-   ```
-
-## 📁 Project Structure
+## Project Structure
 
 ```
 fhevm-hardhat-template/
-├── contracts/           # Smart contract source files
-│   └── FHECounter.sol   # Example FHE counter contract
-├── deploy/              # Deployment scripts
-├── tasks/               # Hardhat custom tasks
-├── test/                # Test files
-├── hardhat.config.ts    # Hardhat configuration
-└── package.json         # Dependencies and scripts
+├── contracts/
+│   ├── RockPaperScissorsBase.sol    # Abstract base with FHE game logic
+│   ├── RockPaperScissors.sol        # 2-player mode
+│   └── RockPaperScissorsSolo.sol    # Solo mode (vs encrypted AI)
+├── test/
+│   ├── RockPaperScissors.ts         # Comprehensive test suite
+│   ├── RockPaperScissors.demo.ts    # Interactive 2-player demo
+│   ├── RockPaperScissorsSolo.ts     # Solo mode tests
+│   └── RockPaperScissorsSolo.demo.ts # Interactive solo demo
+├── scripts/
+│   ├── playGame.ts                  # Standalone 2-player demo
+│   └── playSolo.ts                  # Standalone solo demo
+├── DOCUMENTATION.md                 # Developer integration guide
+└── DESIGN.md                        # Technical decisions & debugging
 ```
 
-## 📜 Available Scripts
+## Features
 
-| Script             | Description              |
-| ------------------ | ------------------------ |
-| `npm run compile`  | Compile all contracts    |
-| `npm run test`     | Run all tests            |
-| `npm run coverage` | Generate coverage report |
-| `npm run lint`     | Run linting checks       |
-| `npm run clean`    | Clean build artifacts    |
+✅ **Fully encrypted gameplay** - Player moves never revealed on-chain. \
+✅ **2-player mode** - Classic Rock-Paper-Scissors with encrypted moves. \
+✅ **Solo mode** - Play against Zama (FHE randomness). \
+✅ **Modular architecture** - Reusable base contract for FHE games. \
+✅ **Comprehensive tests** - 14 passing tests covering happypath + edge cases. \
+✅ **Production patterns** - Idempotency, request integrity, ACL management.
 
-## 📚 Documentation
+## How It Works
 
-- [FHEVM Documentation](https://docs.zama.ai/fhevm)
-- [FHEVM Hardhat Setup Guide](https://docs.zama.ai/protocol/solidity-guides/getting-started/setup)
-- [FHEVM Testing Guide](https://docs.zama.ai/protocol/solidity-guides/development-guide/hardhat/write_test)
-- [FHEVM Hardhat Plugin](https://docs.zama.ai/protocol/solidity-guides/development-guide/hardhat)
+```
+┌─────────┐         ┌──────────────┐         ┌─────────┐
+│ Alice   │────────▶│   Contract   │◀────────│   Bob   │
+│ (Rock)  │ encrypt │  (FHE ops)   │ encrypt │ (Paper) │
+└─────────┘         └──────┬───────┘         └─────────┘
+                           │
+                    Calculate winner
+                    (on encrypted data)
+                           │
+                           ▼
+                    ┌─────────────┐
+                    │ KMS/Gateway │
+                    │ (Decryption)│
+                    └──────┬──────┘
+                           │
+                    🎉 Winner: Bob
+```
 
-## 📄 License
+## Run Deployment
 
-This project is licensed under the BSD-3-Clause-Clear License. See the [LICENSE](LICENSE) file for details.
+### Local Network
 
-## 🆘 Support
+```bash
+# Terminal 1: Start local FHEVM node
+npx hardhat node
 
-- **GitHub Issues**: [Report bugs or request features](https://github.com/zama-ai/fhevm/issues)
-- **Documentation**: [FHEVM Docs](https://docs.zama.ai)
-- **Community**: [Zama Discord](https://discord.gg/zama)
+# Terminal 2: Deploy contracts
+npx hardhat deploy --network localhost
+```
+
+## Documentation
+
+- **[DOCUMENTATION.md](./DOCUMENTATION.md)** - Quickstart guide for integrating RPS contracts in your dApp
+- **[DESIGN.md](./DESIGN.md)** - System design, debugging strategies, and technical trade-offs
+- **[Zama FHEVM Docs](https://docs.zama.ai/protocol)** - Official FHEVM documentation
+
+## Test Coverage
+
+```bash
+# Run unit tests
+npm test
+```
+
+**12 unit tests covering:**
+
+- ✅ Draw scenarios
+- ✅ Idempotency (prevent double submission)
+- ✅ Input validation (sanitize invalid moves)
+- ✅ Game reset and replay
+- ✅ Solo mode (player vs encrypted AI)
+- ✅ Access control
+
+**2 interactive demos:**
+
+- ✅ 2-player demo (`npm run demo:duo`)
+- ✅ Solo mode demo (`npm run demo:solo`)
+
+## License
+
+MIT
+
+## Support
+
+- **FHEVM Docs**: https://docs.zama.ai/protocol
+- **Zama Discord**: https://discord.gg/zama
+- **GitHub Issues**: https://github.com/zama-ai/fhevm/issues
 
 ---
-
-**Built with ❤️ by the Zama team**
