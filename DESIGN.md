@@ -34,10 +34,10 @@ RockPaperScissorsBase (abstract)
 
 **Why this architecture?**
 
-- ✅ DRY principle: Shared logic lives in one place
-- ✅ Extensibility: New game modes (tournaments, betting) don't duplicate code
-- ✅ No regression risk: Adding solo mode didn't break 2-player tests
-- ✅ Testability: Independent test suites per mode
+- DRY principle: Shared logic lives in one place
+- Extensibility: New game modes (tournaments, betting) don't duplicate code
+- No regression risk: Adding solo mode didn't break 2-player tests
+- Testability: Independent test suites per mode
 
 ### Solo Mode: FHE Randomness
 
@@ -130,30 +130,7 @@ isDecryptionPending = true;
 
 Global lock ensures only one decryption at a time. Lock released in `revealCallback()`.
 
-#### 3. Callback Authenticity
-
-**Challenge**: `revealCallback()` is public (required for Gateway). Without validation, attackers could inject fake
-results.
-
-**Solution** (contracts/RockPaperScissorsBase.sol:107-116):
-
-```solidity
-function revealCallback(uint256 requestId, bytes memory cleartexts, bytes memory decryptionProof) public {
-  require(requestId == latestRequestId, "Invalid request ID");
-  FHE.checkSignatures(requestId, cleartexts, decryptionProof);
-  // Process result
-}
-```
-
-**Defense layers**:
-
-1. **Request ID validation**: Anti-replay protection
-2. **Signature verification**: `FHE.checkSignatures()` validates KMS cryptographic signatures
-3. **ZK proof validation**: Proves decryption correctness
-
-Without these checks, anyone could call the callback with fabricated results.
-
-#### 4. Input Validation via FHE Sanitization
+#### 3. Input Validation via FHE Sanitization
 
 Traditional `require()` statements leak information when validating encrypted inputs (revert/success reveals data
 properties).
@@ -180,8 +157,8 @@ See test coverage: test/RockPaperScissors.ts:248-275 (sanitization test).
 
 #### The Problem
 
-I deploy to Sepolia, call `requestReveal()`, transaction succeeds with a `RevealRequested` event... but the callback never
-triggers. After 5 minutes, `gameRevealed` is still `false` and the game is stuck.
+I deploy to Sepolia, call `requestReveal()`, transaction succeeds with a `RevealRequested` event... but the callback
+never triggers. After 5 minutes, `gameRevealed` is still `false` and the game is stuck.
 
 **Important context**: This only happens on testnet. In local Hardhat mock mode, `awaitDecryptionOracle()` simulates
 callbacks instantly, so you never see this issue during development.
@@ -234,14 +211,6 @@ Once I fix the issue (likely adding the missing `FHE.allowThis()`):
 2. Run a full game flow
 3. Wait 30-120 seconds (normal callback time on testnet)
 4. Verify `gameRevealed()` returns `true`
-
-For production, I'd also add a timeout mechanism so games don't stay stuck forever if something goes wrong with the
-Gateway.
-
-#### Key Takeaway
-
-ACL permissions are critical and easy to forget. In mock mode everything works without them, but on testnet the Gateway
-actually enforces permissions. Always test on Sepolia before assuming everything works.
 
 ---
 
@@ -342,13 +311,6 @@ enable:
 **Why not implemented**: Out of scope for core requirement. The modular architecture makes this extension
 straightforward.
 
-**2. Frontend Integration**
-
-- Build React dApp using `fhevm-react-template`
-- Integrate `fhevm.js` for client-side encryption
-- Real-time game updates via event listeners
-- MetaMask/WalletConnect integration
-
 ### AI Coding Assistance
 
 I used **Claude and ChatGPT** for this project.
@@ -377,11 +339,3 @@ I used **Claude and ChatGPT** for this project.
 
 - Overall, AI models are not really aware/up to date on FHEVM so I needed to manually study the Zama documentation to
   understand the key concepts and effectively guide Claude.
-
----
-
-## Conclusion
-
-This Rock-Paper-Scissors implementation demonstrates core FHEVM concepts: encrypted computation, ACL management,
-asynchronous decryption, and request integrity. The modular architecture with abstract base contract enables code reuse
-and extensibility.

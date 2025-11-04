@@ -17,15 +17,15 @@ A minimal implementation demonstrating how to build confidential smart contracts
 # Install dependencies
 npm install
 
+# Compile contracts
+npm run compile
+
 # Run unit tests
 npm test
 
 # Run interactive demos
 npm run demo:duo   # 2-player demo (Alice vs Bob)
 npm run demo:solo  # Solo demo (Player vs Zama)
-
-# Compile contracts
-npm run compile
 ```
 
 ### See It In Action
@@ -145,14 +145,12 @@ npm test
 - ✅ 2-player demo (`npm run demo:duo`)
 - ✅ Solo mode demo (`npm run demo:solo`)
 
-## License
-
-MIT
-
 ## Support
 
 - **FHEVM Docs**: https://docs.zama.ai/protocol
 - **Zama Discord**: https://discord.gg/zama
 - **GitHub Issues**: https://github.com/zama-ai/fhevm/issues
 
----
+## License
+
+MIT

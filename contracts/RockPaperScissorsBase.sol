@@ -104,11 +104,7 @@ abstract contract RockPaperScissorsBase is SepoliaConfig {
     /// @param cleartexts ABI-encoded decrypted values
     /// @param decryptionProof KMS signatures and proof data
     /// @dev CRITICAL: Always verify signatures to prevent manipulation
-    function revealCallback(
-        uint256 requestId,
-        bytes memory cleartexts,
-        bytes memory decryptionProof
-    ) public virtual {
+    function revealCallback(uint256 requestId, bytes memory cleartexts, bytes memory decryptionProof) public virtual {
         // Anti-replay: Verify this is the expected request
         require(requestId == latestRequestId, "Invalid request ID");
 
@@ -128,10 +124,9 @@ abstract contract RockPaperScissorsBase is SepoliaConfig {
         emit GameResult(result, winner);
     }
 
-    // ============================================
-    // Abstract Functions (Implemented by children)
-    // ============================================
-
+    // ===================
+    // Abstract Functions
+    // ===================
     /// @notice Reset the game state for a new round
     /// @dev Implementation differs between 2-player and solo modes
     function resetGame() external virtual;

@@ -20,6 +20,21 @@ cd fhevm-rps
 npm install
 ```
 
+## Complete Example
+
+See working examples in the repository:
+
+- **Test-based demo**: `test/RockPaperScissors.demo.ts` - Full game flow with mocked callbacks
+- **Standalone script**: `scripts/playGame.ts` - Reusable demo script
+- **Full test suite**: `test/RockPaperScissors.ts` - All edge cases covered
+
+Run the demo:
+
+```bash
+npm run demo:duo   # 2-player demo (Alice vs Bob)
+npm run demo:solo  # Solo demo (Player vs Zama)
+```
+
 ## Usage Pattern
 
 ### Step 1: Deploy the Contract
@@ -222,21 +237,6 @@ const result = await soloContract.result();
 ```
 
 **Key difference**: Zama's move is generated with `FHE.randEuint8()` and **never revealed** (stays encrypted forever).
-
-## Complete Example
-
-See working examples in the repository:
-
-- **Test-based demo**: `test/RockPaperScissors.demo.ts` - Full game flow with mocked callbacks
-- **Standalone script**: `scripts/playGame.ts` - Reusable demo script
-- **Full test suite**: `test/RockPaperScissors.ts` - All edge cases covered
-
-Run the demo:
-
-```bash
-npm run demo:duo   # 2-player demo (Alice vs Bob)
-npm run demo:solo  # Solo demo (Player vs Zama)
-```
 
 ## Security Patterns
 

@@ -94,15 +94,6 @@ async function runSoloDemo() {
 
   console.log("====================================================");
   console.log("✅ Demo complete!\n");
-  console.log("💡 Key features:");
-  console.log("   - Zama's move generated with FHE.randEuint8() (encrypted on-chain)");
-  console.log("   - Zama's move NEVER revealed (stays confidential forever)");
-  console.log("   - Winner calculated entirely on encrypted data");
-  console.log("   - Only the final result is decrypted");
-  console.log("\n🎯 About 'Zama':");
-  console.log("   Zama personifies the encrypted randomness system.");
-  console.log("   You're playing against Zama's FHE PRNG - the technology that");
-  console.log("   makes confidential on-chain gaming possible!\n");
 }
 
 // Export for use as a test
